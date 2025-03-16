@@ -190,19 +190,46 @@ public class SeatService {
     * @throws BadRequestException If the requested number of seats together cannot be found.
     */
     private List<SeatInfo> findSeatsTogether(List<SeatInfo> availableSeats, SeatPreference preferences) {
+        // Group seats by row
         Map<Integer, List<SeatInfo>> seatsByRow = availableSeats.stream()
-                .collect(Collectors.groupingBy(seat -> Integer.parseInt(seat.getSeatNumber().replaceAll("[A-Z]", ""))));
+                .collect(Collectors.groupingBy(seat -> getRowNumber(seat.getSeatNumber())));
 
         for (List<SeatInfo> rowSeats : seatsByRow.values()) {
-            rowSeats.sort(Comparator.comparing(SeatInfo::getSeatNumber));
+            // Sort by seat letter (A-F)
+            rowSeats.sort(Comparator.comparing(seat -> seat.getSeatNumber().charAt(seat.getSeatNumber().length() - 1)));
+
             for (int i = 0; i <= rowSeats.size() - preferences.getNumberOfSeats(); i++) {
                 List<SeatInfo> group = rowSeats.subList(i, i + preferences.getNumberOfSeats());
-                if (group.stream().allMatch(seat -> !seat.isBooked())) {
+
+                // Ensure seats are actually adjacent
+                if (areSeatsAdjacent(group)) {
                     return group;
                 }
             }
         }
         throw new BadRequestException("Could not find requested number of seats together");
+    }
+
+    /**
+     * Extracts the row number from a seat number (e.g., "10A" -> 10).
+     */
+    private int getRowNumber(String seatNumber) {
+        return Integer.parseInt(seatNumber.replaceAll("[^0-9]", ""));
+    }
+
+    /**
+     * Checks if the seats are actually adjacent in the same row.
+     */
+    private boolean areSeatsAdjacent(List<SeatInfo> seats) {
+        for (int i = 1; i < seats.size(); i++) {
+            char prevSeat = seats.get(i - 1).getSeatNumber().charAt(seats.get(i - 1).getSeatNumber().length() - 1);
+            char currSeat = seats.get(i).getSeatNumber().charAt(seats.get(i).getSeatNumber().length() - 1);
+
+            if (currSeat - prevSeat != 1) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
