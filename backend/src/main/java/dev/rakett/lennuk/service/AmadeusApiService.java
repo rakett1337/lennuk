@@ -14,6 +14,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -86,37 +87,73 @@ public class AmadeusApiService {
     }
 
     public List<Flight> fetchFlightDestinations(String origin) {
+        int maxRetries = 3;
+        int attempt = 0;
+
+        while (attempt < maxRetries) {
+            try {
+                String token = getAccessToken();
+                if (token == null) {
+                    throw new ExternalServiceException("Failed to obtain Amadeus API access token");
+                }
+
+                HttpHeaders headers = new HttpHeaders();
+                headers.setBearerAuth(token);
+                headers.setContentType(MediaType.APPLICATION_JSON);
+
+                UriComponentsBuilder builder = UriComponentsBuilder
+                        .fromUriString(apiUrl + "/v1/shopping/flight-destinations")
+                        .queryParam("origin", origin);
+
+                ResponseEntity<AmadeusFlightDestinationResponseDto> response = restTemplate.exchange(
+                        builder.toUriString(),
+                        HttpMethod.GET,
+                        new HttpEntity<>(headers),
+                        AmadeusFlightDestinationResponseDto.class);
+
+                if (response.getBody() != null) {
+                    return mapToFlightEntities(response.getBody());
+                } else {
+                    throw new ExternalServiceException("Received null response from Amadeus API");
+                }
+
+                // To deal with the occasional 500 from amadeus api: 
+                // {"errors":[{"status":500,"code":141,"title":"SYSTEM ERROR HAS OCCURRED","detail":"Primitive Timeout"}]}
+            } catch (HttpServerErrorException.InternalServerError e) {
+                if (shouldRetry(e)) {
+                    log.warn("Primitive Timeout detected, retrying... (attempt {}/{})", attempt + 1, maxRetries);
+                    attempt++;
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new ExternalServiceException("Thread interrupted while retrying Amadeus API request", ie);
+                    }
+                } else {
+                    log.error("Non-retryable error occurred: {}", e.getMessage(), e);
+                    throw new ExternalServiceException("Error communicating with Amadeus API", e);
+                }
+            } catch (RestClientException e) {
+                log.error("Error fetching flight data from Amadeus API", e);
+                throw new ExternalServiceException("Error communicating with Amadeus API", e);
+            } catch (ExternalServiceException e) {
+                log.error(e.getMessage(), e);
+                throw e;
+            } catch (Exception e) {
+                log.error("Unexpected error fetching flight data", e);
+                throw new ExternalServiceException("Unexpected error fetching flight data: " + e.getMessage(), e);
+            }
+        }
+        throw new ExternalServiceException("Failed to fetch flight data after " + maxRetries + " attempts");
+    }
+
+    private boolean shouldRetry(HttpServerErrorException e) {
         try {
-            String token = getAccessToken();
-            if (token == null) {
-                throw new ExternalServiceException("Failed to obtain Amadeus API access token");
-            }
-            HttpHeaders headers = new HttpHeaders();
-            headers.setBearerAuth(token);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            UriComponentsBuilder builder = UriComponentsBuilder
-                    .fromUriString(apiUrl + "/v1/shopping/flight-destinations")
-                    .queryParam("origin", origin)
-                    .queryParam("oneWay", "false");
-            ResponseEntity<AmadeusFlightDestinationResponseDto> response = restTemplate.exchange(
-                    builder.toUriString(),
-                    HttpMethod.GET,
-                    new HttpEntity<>(headers),
-                    AmadeusFlightDestinationResponseDto.class);
-            if (response.getBody() != null) {
-                return mapToFlightEntities(response.getBody());
-            } else {
-                throw new ExternalServiceException("Received null response from Amadeus API");
-            }
-        } catch (RestClientException e) {
-            log.error("Error fetching flight data from Amadeus API", e);
-            throw new ExternalServiceException("Error communicating with Amadeus API", e);
-        } catch (ExternalServiceException e) {
-            log.error(e.getMessage(), e);
-            throw e;
-        } catch (Exception e) {
-            log.error("Unexpected error fetching flight data", e);
-            throw new ExternalServiceException("Unexpected error fetching flight data: " + e.getMessage(), e);
+            String responseBody = e.getResponseBodyAsString();
+            return responseBody.contains("\"code\":141") && responseBody.contains("\"detail\":\"Primitive Timeout\"");
+        } catch (Exception ex) {
+            log.warn("Failed to parse error response: {}", ex.getMessage());
+            return false;
         }
     }
 
