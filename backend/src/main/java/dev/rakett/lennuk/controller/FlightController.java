@@ -50,7 +50,7 @@ public class FlightController {
     /**
     * Retrieves a seat map for a given flight with recommendations based on preferences.
     * If the flight is not found, a 404 Not Found response is returned.
-    * If an invalid number of seats is requested (e.g., less than or equal to zero),
+    * If an invalid number of seats is requested (e.g., less than or equal to zero/more than two),
     * a 400 Bad Request exception is thrown.
     *
     * @param id                    The ID of the flight.

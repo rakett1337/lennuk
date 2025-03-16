@@ -21,7 +21,7 @@
 
   onMount(async () => {
     try {
-      const response = await fetch("http://localhost:8080/api/flights");
+      const response = await fetch("/api/flights");
       flights = await response.json();
     } catch (error) {
       console.error("Error fetching flights:", error);
@@ -47,7 +47,7 @@
       });
 
       const response = await fetch(
-        `http://localhost:8080/api/flights/${selectedFlight.id}/seats?${params}`,
+        `/api/flights/${selectedFlight.id}/seats?${params}`,
       );
       const result = await response.json();
       seats = result.data;

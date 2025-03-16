@@ -1,0 +1,35 @@
+services:
+  backend:
+    container_name: flights-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      AMADEUS_API_KEY: ${AMADEUS_API_KEY}
+      AMADEUS_API_SECRET: ${AMADEUS_API_SECRET}
+      AMADEUS_API_BASE_URL: ${AMADEUS_API_BASE_URL}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    restart: unless-stopped
+
+  frontend:
+    container_name: flights-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  caddy:
+    container_name: flights-proxy
+    image: caddy:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
