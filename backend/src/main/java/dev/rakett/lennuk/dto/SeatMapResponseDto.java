@@ -1,6 +1,7 @@
 package dev.rakett.lennuk.dto;
 
 import java.util.List;
+
 import dev.rakett.lennuk.entity.SeatInfo;
 import lombok.AllArgsConstructor;
 import lombok.Data;

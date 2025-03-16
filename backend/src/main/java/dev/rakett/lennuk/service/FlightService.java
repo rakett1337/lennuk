@@ -18,12 +18,22 @@ import lombok.RequiredArgsConstructor;
 public class FlightService {
 
     private final FlightRepository flightRepository;
+    private final AmadeusApiService amadeusApiService;
     private final SeatService seatService;
     private final FlightCreator flightCreator;
 
     public void initializeFlights() {
         if (flightRepository.count() == 0) {
-            List<Flight> flights = flightCreator.createSampleFlights();
+            List<Flight> flights;
+            try {
+                // The api is quite limited on free tier, so we hardcode origin to LON for now
+                flights = amadeusApiService.fetchFlightDestinations("LON");
+                if (flights == null || flights.isEmpty()) {
+                    flights = flightCreator.createSampleFlights();
+                }
+            } catch (Exception e) {
+                flights = flightCreator.createSampleFlights();
+            }
             flightRepository.saveAll(flights);
             seatService.initializeBookedSeats();
         }

@@ -16,5 +16,8 @@ public class FlightDto {
     private String destination;
     private String departureDate;
     private String returnDate;
+    private String subType;
+    private String originDetailedName;
+    private String destinationDetailedName;
     private BigDecimal basePrice;
 }
