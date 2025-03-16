@@ -1,6 +1,7 @@
 package dev.rakett.lennuk.dto;
 
 import java.util.List;
+import dev.rakett.lennuk.entity.SeatInfo;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,10 +10,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SeatMapResponseDto {
-    private List<SeatInfoDto> data;
+    private List<SeatInfo> data;
     private String errorMessage;
 
-    public SeatMapResponseDto(List<SeatInfoDto> data) {
+    public SeatMapResponseDto(List<SeatInfo> data) {
         this.data = data;
         this.errorMessage = null;
     }

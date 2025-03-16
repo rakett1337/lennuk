@@ -1,51 +1,52 @@
 package dev.rakett.lennuk.service;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import dev.rakett.lennuk.dto.FlightDto;
-import dev.rakett.lennuk.dto.SeatInfoDto;
+import dev.rakett.lennuk.entity.Flight;
 import dev.rakett.lennuk.exception.BadRequestException;
-import dev.rakett.lennuk.exception.ResourceNotFoundException;
-import dev.rakett.lennuk.model.SeatPreference;
+import dev.rakett.lennuk.repository.FlightRepository;
 import dev.rakett.lennuk.util.FlightCreator;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class FlightService {
-    private final FlightCreator flightCreator;
+
+    private final FlightRepository flightRepository;
     private final SeatService seatService;
+    private final FlightCreator flightCreator;
 
-    private List<FlightDto> cachedFlights;
+    public void initializeFlights() {
+        if (flightRepository.count() == 0) {
+            List<Flight> flights = flightCreator.createSampleFlights();
+            flightRepository.saveAll(flights);
+            seatService.initializeBookedSeats();
+        }
+    }
 
+    @Transactional(readOnly = true)
     public List<FlightDto> getFlights() {
-        if (cachedFlights == null) {
-            cachedFlights = flightCreator.createSampleFlights();
-        }
-        return cachedFlights;
+        return flightRepository.findAll().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
     }
 
-    public List<SeatInfoDto> getSeatsForFlight(Long flightId) {
-        validateFlightExists(flightId);
-        return seatService.getSeatMap(flightId);
-    }
-
-    public List<SeatInfoDto> getSeatsWithRecommendations(Long flightId, SeatPreference preferences) {
-        if (flightId == null) {
+    @Transactional(readOnly = true)
+    public Optional<Flight> getFlightById(Long id) {
+        if (id == null) {
             throw new BadRequestException("Flight ID cannot be null");
         }
-        validateFlightExists(flightId);
-        return seatService.getSeatMapWithRecommendations(flightId, preferences);
+        return flightRepository.findByIdWithBookedSeats(id);
     }
 
-    private void validateFlightExists(Long flightId) {
-        if (flightId == null) {
-            throw new BadRequestException("Flight ID cannot be null");
-        }
-        boolean flightExists = getFlights().stream()
-                .anyMatch(flight -> flight.getId().equals(flightId));
-        if (!flightExists) {
-            throw new ResourceNotFoundException("Flight", "id", flightId);
-        }
+    private FlightDto convertToDto(Flight flight) {
+        FlightDto dto = new FlightDto();
+        BeanUtils.copyProperties(flight, dto);
+        return dto;
     }
 }
