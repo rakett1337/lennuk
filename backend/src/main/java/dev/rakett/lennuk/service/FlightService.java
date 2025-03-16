@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.ArrayList;
 import org.springframework.stereotype.Service;
 import dev.rakett.lennuk.dto.FlightDto;
+import dev.rakett.lennuk.dto.SeatInfoDto;
 
 @Service
 public class FlightService {
@@ -38,5 +39,35 @@ public class FlightService {
                 .build());
 
         return flights;
+    }
+
+    public List<SeatInfoDto> getSeatsForFlight(Long flightId) {
+        List<SeatInfoDto> seats = new ArrayList<>();
+
+        boolean flightExists = getFlights()
+                .stream()
+                .anyMatch(flight -> flight.getId().equals(flightId));
+
+        if (!flightExists) {
+            return seats;
+        }
+
+        for (int row = 1; row <= 6; row++) {
+            for (char seatLetter = 'A'; seatLetter <= 'F'; seatLetter++) {
+                String seatNumber = row + String.valueOf(seatLetter);
+
+                boolean isBooked = Math.random() > 0.7;
+
+                seats.add(SeatInfoDto.builder()
+                        .seatNumber(seatNumber)
+                        .isWindow(seatLetter == 'A' || seatLetter == 'F')
+                        .isAisle(seatLetter == 'C' || seatLetter == 'D')
+                        .isExitRow(row == 1 || row == 6)
+                        .isBooked(isBooked)
+                        .build());
+            }
+        }
+
+        return seats;
     }
 }
