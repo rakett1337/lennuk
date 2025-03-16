@@ -1,0 +1,20 @@
+#!/bin/bash
+
+mkdir -p "$PWD/backend"
+
+sudo apt-get update
+sudo apt-get install unzip
+
+curl -s https://start.spring.io/starter.zip \
+    -d dependencies=web,devtools,lombok \
+    -d javaVersion=21 \
+    -d bootVersion=3.4.3 \
+    -d groupId=dev.rakett \
+    -d artifactId=lennuk \
+    -o "$PWD/backend/demo.zip"
+
+unzip -q "$PWD/backend/demo.zip" -d "$PWD/backend"
+
+rm "$PWD/backend/demo.zip"
+
+
