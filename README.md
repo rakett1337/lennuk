@@ -30,7 +30,7 @@ The app is live at [murd.ee](https://murd.ee).
    docker compose up -d --build
    ```
 
-3. Visit [http://localhost:3000](http://localhost:3000).
+3. Visit [http://localhost:8000](http://localhost:8000).
 
 #### To Stop the App
 
