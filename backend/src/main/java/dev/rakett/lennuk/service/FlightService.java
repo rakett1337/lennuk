@@ -13,6 +13,14 @@ import dev.rakett.lennuk.repository.FlightRepository;
 import dev.rakett.lennuk.util.FlightCreator;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Service for managing flight data, including fetching from Amadeus API,
+ * handling fallback data, and providing access to flight information from the database.
+ * 
+ * This service interacts with the Amadeus API to fetch flight destinations and 
+ * initializes flight data. It also provides methods to retrieve flight information 
+ * from the database.
+ */
 @Service
 @RequiredArgsConstructor
 public class FlightService {
@@ -22,6 +30,13 @@ public class FlightService {
     private final SeatService seatService;
     private final FlightCreator flightCreator;
 
+    /**
+    * Initializes flights by fetching data from the Amadeus API. If the API request fails 
+    * or returns an empty result (due to free-tier limitations), fallback sample flights 
+    * are created. 
+    * 
+    * This method is executed only if no flights exist in the repository.
+    */
     public void initializeFlights() {
         if (flightRepository.count() == 0) {
             List<Flight> flights;
@@ -39,6 +54,11 @@ public class FlightService {
         }
     }
 
+    /**
+    * Retrieves all flights stored in the database and converts them into DTOs.
+    * 
+    * @return A list of FlightDto objects representing available flights.
+    */
     @Transactional(readOnly = true)
     public List<FlightDto> getFlights() {
         return flightRepository.findAll().stream()
@@ -46,6 +66,13 @@ public class FlightService {
                 .collect(Collectors.toList());
     }
 
+    /**
+    * Retrieves a specific flight by its ID, including booked seat information.
+    * 
+    * @param id The unique identifier of the flight.
+    * @return An Optional containing the Flight entity if found.
+    * @throws BadRequestException If the flight ID is null.
+    */
     @Transactional(readOnly = true)
     public Optional<Flight> getFlightById(Long id) {
         if (id == null) {
@@ -54,6 +81,12 @@ public class FlightService {
         return flightRepository.findByIdWithBookedSeats(id);
     }
 
+    /**
+    * Converts a Flight entity to a FlightDto object.
+    * 
+    * @param flight The Flight entity to convert.
+    * @return A FlightDto representation of the flight.
+    */
     private FlightDto convertToDto(Flight flight) {
         FlightDto dto = new FlightDto();
         BeanUtils.copyProperties(flight, dto);

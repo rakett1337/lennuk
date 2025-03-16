@@ -18,6 +18,9 @@ import dev.rakett.lennuk.service.SeatService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Controller for managing flight and seat-related operations.
+ */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -26,16 +29,40 @@ public class FlightController {
     private final FlightService flightService;
     private final SeatService seatService;
 
+    /**
+    * Initializes flight data.
+    */
     @PostConstruct
     public void initialize() {
         flightService.initializeFlights();
     }
 
+    /**
+    * Retrieves a list of available flights originating from the default location.
+    *
+    * @return A ResponseEntity containing a list of FlightDto objects.
+    */
     @GetMapping("/flights")
     public ResponseEntity<List<FlightDto>> getFlights() {
         return ResponseEntity.ok(flightService.getFlights());
     }
 
+    /**
+    * Retrieves a seat map for a given flight with recommendations based on preferences.
+    * If the flight is not found, a 404 Not Found response is returned.
+    * If an invalid number of seats is requested (e.g., less than or equal to zero),
+    * a 400 Bad Request exception is thrown.
+    *
+    * @param id                    The ID of the flight.
+    * @param windowSeat            (Optional) Preference for a window seat.
+    * @param extraLegroom          (Optional) Preference for extra legroom.
+    * @param exitRowProximity      (Optional) Preference for proximity to an exit row.
+    * @param numSeats              The number of seats required (default: 1, must be greater than zero).
+    * @param seatsTogetherRequired Whether the seats need to be together (default: false).
+    * @return A ResponseEntity containing a SeatMapResponseDto with seat recommendations.
+    * @throws BadRequestException  If the number of requested seats is not greater than zero or more than two.
+    * @throws ResourceNotFoundException If the specified flight is not found.
+    */
     @GetMapping("/flights/{id}/seats")
     public ResponseEntity<SeatMapResponseDto> getSeatsForFlight(
             @PathVariable Long id,

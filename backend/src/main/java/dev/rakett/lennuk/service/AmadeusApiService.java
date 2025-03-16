@@ -25,6 +25,10 @@ import dev.rakett.lennuk.entity.Flight;
 import dev.rakett.lennuk.exception.ExternalServiceException;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Service for interacting with the Amadeus API to fetch flight information.
+ * @see <a href="https://developers.amadeus.com/self-service/apis-docs">Amadeus Api Docs</a>
+ */
 @Service
 @Slf4j
 public class AmadeusApiService {
@@ -43,49 +47,21 @@ public class AmadeusApiService {
     private final AtomicReference<Instant> tokenExpiration = new AtomicReference<>();
     private final RestTemplate restTemplate;
 
+    /**
+    * Constructor for AmadeusApiService.
+    */
     public AmadeusApiService() {
         this.restTemplate = new RestTemplate();
     }
 
-    public String getAccessToken() {
-        if (cachedToken.get() != null &&
-                tokenExpiration.get() != null &&
-                tokenExpiration.get().isAfter(Instant.now().plusSeconds(EXPIRY_BUFFER_SECONDS))) {
-            return cachedToken.get();
-        }
-        log.debug("Requesting new access token from {}/v1/security/oauth2/token", apiUrl);
-        String requestBody = "grant_type=client_credentials&client_id=" + apiKey +
-                "&client_secret=" + clientSecret;
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-            HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<AmadeusOAuthResponseDto> response = restTemplate.exchange(
-                    apiUrl + "/v1/security/oauth2/token",
-                    HttpMethod.POST,
-                    request,
-                    AmadeusOAuthResponseDto.class);
-            AmadeusOAuthResponseDto responseBody = response.getBody();
-            if (responseBody != null) {
-                log.debug("Token response: {}", responseBody);
-                cachedToken.set(responseBody.getAccessToken());
-                int expirySeconds = responseBody.getExpiresIn();
-                log.debug("Access token value: {}", responseBody.getAccessToken());
-                log.debug("Raw expiry seconds: {}", expirySeconds);
-                tokenExpiration.set(Instant.now().plusSeconds(expirySeconds));
-                log.debug("Successfully obtained new access token, expires in {} seconds", expirySeconds);
-                return responseBody.getAccessToken();
-            }
-            throw new ExternalServiceException("Failed to obtain access token: response body is null");
-        } catch (RestClientException e) {
-            log.error("Error obtaining access token: {}", e.getMessage(), e);
-            throw new ExternalServiceException("Error communicating with Amadeus authentication service", e);
-        } catch (Exception e) {
-            log.error("Error obtaining access token: {} - {}", e.getClass().getName(), e.getMessage(), e);
-            throw new ExternalServiceException("Unexpected error obtaining access token", e);
-        }
-    }
-
+    /**
+    * Fetches flight destinations from the Amadeus API based on a given origin.
+    * Retries up to 3 times in case of a "Primitive Timeout" error (code 141).
+    *
+    * @param origin The origin airport IATA code (e.g., "LGW") or city code (e.g., "LON").
+    * @return A list of Flight objects representing flight destinations.
+    * @throws ExternalServiceException If there is an error in communication or response processing.
+    */
     public List<Flight> fetchFlightDestinations(String origin) {
         int maxRetries = 3;
         int attempt = 0;
@@ -147,6 +123,60 @@ public class AmadeusApiService {
         throw new ExternalServiceException("Failed to fetch flight data after " + maxRetries + " attempts");
     }
 
+    /**
+    * Retrieves an access token for the Amadeus API.  It first checks for a cached,
+    * non-expired token. If a valid cached token is not found, it requests a new
+    * token from the Amadeus API, caches it, and then returns it.
+    *
+    * @return The Amadeus API access token
+    * @throws ExternalServiceException If there is an error in communication or response processing.
+    * @see <a href="https://developers.amadeus.com/self-service/apis-docs/guides/developer-guides/API-Keys/authorization/">Amadeus Authorization Guide</a>
+    */
+    public String getAccessToken() {
+        if (cachedToken.get() != null &&
+                tokenExpiration.get() != null &&
+                tokenExpiration.get().isAfter(Instant.now().plusSeconds(EXPIRY_BUFFER_SECONDS))) {
+            return cachedToken.get();
+        }
+        log.debug("Requesting new access token from {}/v1/security/oauth2/token", apiUrl);
+        String requestBody = "grant_type=client_credentials&client_id=" + apiKey +
+                "&client_secret=" + clientSecret;
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<AmadeusOAuthResponseDto> response = restTemplate.exchange(
+                    apiUrl + "/v1/security/oauth2/token",
+                    HttpMethod.POST,
+                    request,
+                    AmadeusOAuthResponseDto.class);
+            AmadeusOAuthResponseDto responseBody = response.getBody();
+            if (responseBody != null) {
+                log.debug("Token response: {}", responseBody);
+                cachedToken.set(responseBody.getAccessToken());
+                int expirySeconds = responseBody.getExpiresIn();
+                log.debug("Access token value: {}", responseBody.getAccessToken());
+                log.debug("Raw expiry seconds: {}", expirySeconds);
+                tokenExpiration.set(Instant.now().plusSeconds(expirySeconds));
+                log.debug("Successfully obtained new access token, expires in {} seconds", expirySeconds);
+                return responseBody.getAccessToken();
+            }
+            throw new ExternalServiceException("Failed to obtain access token: response body is null");
+        } catch (RestClientException e) {
+            log.error("Error obtaining access token: {}", e.getMessage(), e);
+            throw new ExternalServiceException("Error communicating with Amadeus authentication service", e);
+        } catch (Exception e) {
+            log.error("Error obtaining access token: {} - {}", e.getClass().getName(), e.getMessage(), e);
+            throw new ExternalServiceException("Unexpected error obtaining access token", e);
+        }
+    }
+
+    /**
+    * Determines if the error should trigger a retry based on Amadeus API error response.
+    *
+    * @param e The HttpServerErrorException received.
+    * @return true if the error is a "Primitive Timeout" (code 141), otherwise false.
+    */
     private boolean shouldRetry(HttpServerErrorException e) {
         try {
             String responseBody = e.getResponseBodyAsString();
@@ -157,6 +187,12 @@ public class AmadeusApiService {
         }
     }
 
+    /**
+    * Maps the response DTO from the Amadeus API to a list of Flight entities.
+    *
+    * @param responseDto The response object from the Amadeus API.
+    * @return A list of Flight objects.
+    */
     private List<Flight> mapToFlightEntities(AmadeusFlightDestinationResponseDto responseDto) {
         List<Flight> flights = new ArrayList<>();
         Map<String, AmadeusFlightDestinationResponseDto.Dictionaries.LocationData> locations = responseDto
