@@ -46,4 +46,5 @@ docker compose down
 - Flights are exclusively departing from London.
 - Each user can purchase a maximum of two tickets per flight.
 - Opinionated seat recommendation system using weighted scoring.
+  - Legroom > Exit Row > Window
 - No tests

@@ -171,7 +171,7 @@ public class SeatService {
     * @throws BadRequestException If the requested number of seats together cannot be found.
     */
     private List<SeatInfo> findRecommendedSeats(List<SeatInfo> availableSeats, SeatPreference preferences) {
-        if (preferences.isSeatsTogetherRequired()) {
+        if (preferences.isSeatsTogetherRequired() && preferences.getNumberOfSeats() > 1) {
             return findSeatsTogether(availableSeats, preferences);
         } else {
             return availableSeats.stream()
@@ -194,20 +194,66 @@ public class SeatService {
         Map<Integer, List<SeatInfo>> seatsByRow = availableSeats.stream()
                 .collect(Collectors.groupingBy(seat -> getRowNumber(seat.getSeatNumber())));
 
+        List<List<SeatInfo>> candidateGroups = new ArrayList<>();
+
+        // First pass: find all candidate groups that meet the adjacency requirement
         for (List<SeatInfo> rowSeats : seatsByRow.values()) {
-            // Sort by seat letter (A-F)
             rowSeats.sort(Comparator.comparing(seat -> seat.getSeatNumber().charAt(seat.getSeatNumber().length() - 1)));
 
             for (int i = 0; i <= rowSeats.size() - preferences.getNumberOfSeats(); i++) {
                 List<SeatInfo> group = rowSeats.subList(i, i + preferences.getNumberOfSeats());
-
-                // Ensure seats are actually adjacent
                 if (areSeatsAdjacent(group)) {
-                    return group;
+                    candidateGroups.add(new ArrayList<>(group));
                 }
             }
         }
-        throw new BadRequestException("Could not find requested number of seats together");
+
+        // If window preference is required, filter groups without window seats
+        if (preferences.isWindowSeat()) {
+            List<List<SeatInfo>> windowGroups = candidateGroups.stream()
+                    .filter(group -> group.stream().anyMatch(SeatInfo::isWindow))
+                    .collect(Collectors.toList());
+
+            // Only apply this filter if viable options exist
+            if (!windowGroups.isEmpty()) {
+                candidateGroups = windowGroups;
+            }
+        }
+
+        // Apply additional critical filters for extra legroom and exit row if needed
+        if (preferences.isExtraLegroom()) {
+            List<List<SeatInfo>> legroomGroups = candidateGroups.stream()
+                    .filter(group -> group.stream().anyMatch(SeatInfo::isExtraLegroom))
+                    .collect(Collectors.toList());
+
+            if (!legroomGroups.isEmpty()) {
+                candidateGroups = legroomGroups;
+            }
+        }
+
+        if (preferences.isExitRowProximity()) {
+            List<List<SeatInfo>> exitRowGroups = candidateGroups.stream()
+                    .filter(group -> group.stream().anyMatch(SeatInfo::isExitRow))
+                    .collect(Collectors.toList());
+
+            if (!exitRowGroups.isEmpty()) {
+                candidateGroups = exitRowGroups;
+            }
+        }
+
+        // If we have viable groups, return the one with highest score
+        if (!candidateGroups.isEmpty()) {
+            return candidateGroups.stream()
+                    .max(Comparator
+                            .comparingInt(group -> group.stream().mapToInt(SeatInfo::getRecommendationScore).sum()))
+                    .orElse(candidateGroups.get(0));
+        }
+
+        // Fallback to best individual seats if no adjacent groups match criteria
+        return availableSeats.stream()
+                .sorted(Comparator.comparingInt(SeatInfo::getRecommendationScore).reversed())
+                .limit(preferences.getNumberOfSeats())
+                .collect(Collectors.toList());
     }
 
     /**
