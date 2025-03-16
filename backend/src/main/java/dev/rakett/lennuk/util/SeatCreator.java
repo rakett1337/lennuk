@@ -12,24 +12,22 @@ public class SeatCreator {
 
     public List<SeatInfoDto> createSeatsForFlight(Long flightId) {
         List<SeatInfoDto> seats = new ArrayList<>();
-
         for (int row = 1; row <= 6; row++) {
             for (char seatLetter = 'A'; seatLetter <= 'F'; seatLetter++) {
                 String seatNumber = row + String.valueOf(seatLetter);
-
-                // Randomly mark some seats as booked (30% chance)
-                boolean isBooked = random.nextDouble() > 0.7;
-
+                boolean isBooked = random.nextDouble() > 0.7; // 30% chance booked
                 seats.add(SeatInfoDto.builder()
                         .seatNumber(seatNumber)
                         .isWindow(seatLetter == 'A' || seatLetter == 'F')
                         .isAisle(seatLetter == 'C' || seatLetter == 'D')
                         .isExitRow(row == 1 || row == 6)
+                        .isExtraLegroom(row == 1) // First row has extra legroom
                         .isBooked(isBooked)
+                        .recommended(false)
+                        .recommendationScore(0)
                         .build());
             }
         }
-
         return seats;
     }
 }
