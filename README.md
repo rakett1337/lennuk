@@ -41,6 +41,7 @@ docker compose down
 ## Notes
 
 - All planes have a fixed 3-3 seating layout with six seats per row.
+- Only round-trip flights.
 - Seats are randomly generated and about 30% of them get assigned booked status
 - Flights are exclusively departing from London.
 - Each user can purchase a maximum of two tickets per flight.
