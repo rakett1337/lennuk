@@ -14,16 +14,21 @@ import org.springframework.transaction.annotation.Transactional;
 import dev.rakett.lennuk.dto.SeatMapResponseDto;
 import dev.rakett.lennuk.entity.BookedSeat;
 import dev.rakett.lennuk.entity.Flight;
-import dev.rakett.lennuk.entity.SeatInfo;
 import dev.rakett.lennuk.exception.BadRequestException;
+import dev.rakett.lennuk.model.SeatInfo;
 import dev.rakett.lennuk.model.SeatPreference;
 import dev.rakett.lennuk.repository.FlightRepository;
+import dev.rakett.lennuk.util.SeatCreator;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class SeatService {
     private final FlightRepository flightRepository;
+    private final SeatCreator seatCreator;
+
+    private static final int DEFAULT_ROWS = 15;
+    private static final int DEFAULT_SEATS_PER_ROW = 6;
 
     @Transactional
     public void initializeBookedSeats() {
@@ -31,7 +36,10 @@ public class SeatService {
         Random random = new Random();
         for (Flight flight : flights) {
             flight.clearBookedSeats();
-            List<SeatInfo> allSeats = generateSeatMap(flight);
+            List<SeatInfo> allSeats = seatCreator.createSeatsForFlight(
+                    flight.getId(),
+                    flight.getRows() != null ? flight.getRows() : DEFAULT_ROWS,
+                    flight.getSeatsPerRow() != null ? flight.getSeatsPerRow() : DEFAULT_SEATS_PER_ROW);
             int seatsToBook = (int) (allSeats.size() * 0.3);
             for (int i = 0; i < seatsToBook; i++) {
                 int randomIndex = random.nextInt(allSeats.size());
@@ -92,8 +100,8 @@ public class SeatService {
 
     private List<SeatInfo> generateSeatMap(Flight flight) {
         List<SeatInfo> seats = new ArrayList<>();
-        int rows = flight.getRows();
-        int seatsPerRow = flight.getSeatsPerRow();
+        int rows = flight.getRows() != null ? flight.getRows() : DEFAULT_ROWS;
+        int seatsPerRow = flight.getSeatsPerRow() != null ? flight.getSeatsPerRow() : DEFAULT_SEATS_PER_ROW;
         for (int row = 1; row <= rows; row++) {
             for (int seatNum = 1; seatNum <= seatsPerRow; seatNum++) {
                 SeatInfo seatInfo = new SeatInfo();

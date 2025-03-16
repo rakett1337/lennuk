@@ -1,2 +1,6 @@
 AMADEUS_API_KEY=
 AMADEUS_API_SECRET=
+AMADEUS_API_BASE_URL=https://test.api.amadeus.com
+DB_NAME=testdb
+DB_USER=admin
+DB_PASSWORD=pass

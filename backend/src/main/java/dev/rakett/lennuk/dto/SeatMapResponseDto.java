@@ -1,8 +1,9 @@
 package dev.rakett.lennuk.dto;
 
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
-import dev.rakett.lennuk.entity.SeatInfo;
+import dev.rakett.lennuk.model.SeatInfo;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SeatMapResponseDto {
     private List<SeatInfo> data;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String errorMessage;
 
     public SeatMapResponseDto(List<SeatInfo> data) {

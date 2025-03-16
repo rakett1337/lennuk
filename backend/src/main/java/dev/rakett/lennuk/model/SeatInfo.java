@@ -1,8 +1,14 @@
-package dev.rakett.lennuk.entity;
+package dev.rakett.lennuk.model;
 
 import lombok.Data;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SeatInfo {
     private boolean recommended;
     private String seatNumber;
