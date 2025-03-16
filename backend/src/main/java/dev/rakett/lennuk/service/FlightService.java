@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.springframework.stereotype.Service;
 import dev.rakett.lennuk.dto.FlightDto;
@@ -33,17 +35,32 @@ public class FlightService {
     }
 
     public List<SeatInfoDto> getSeatsForFlight(Long flightId) {
+        if (flightId == null) {
+            throw new BadRequestException("Flight ID cannot be null");
+        }
+
         boolean flightExists = getFlights().stream()
                 .anyMatch(flight -> flight.getId().equals(flightId));
-
         if (!flightExists) {
-            return List.of();
+            throw new ResourceNotFoundException("Flight", "id", flightId);
         }
 
         return seatCreator.createSeatsForFlight(flightId);
     }
 
     public List<SeatInfoDto> getSeatsWithRecommendations(Long flightId, SeatPreference preferences) {
+        if (flightId == null) {
+            throw new BadRequestException("Flight ID cannot be null");
+        }
+
+        if (preferences == null) {
+            throw new BadRequestException("Seat preferences cannot be null");
+        }
+
+        if (preferences.getNumberOfSeats() <= 0 || preferences.getNumberOfSeats() > 2) {
+            throw new BadRequestException("Number of seats must be greater than zero and equal or less than two");
+        }
+
         boolean flightExists = getFlights().stream()
                 .anyMatch(flight -> flight.getId().equals(flightId));
         if (!flightExists) {
@@ -95,21 +112,25 @@ public class FlightService {
     // Helper method to find seats together with highest score
     private List<SeatInfoDto> findSeatsTogetherWithHighestScore(List<SeatInfoDto> availableSeats,
             SeatPreference preferences) {
+        int numberOfSeats = preferences.getNumberOfSeats();
+
         // Group seats by row
         Map<Integer, List<SeatInfoDto>> seatsByRow = availableSeats.stream()
-                .collect(Collectors.groupingBy(seat -> Integer.parseInt(seat.getSeatNumber().substring(0, 1))));
+                .collect(Collectors.groupingBy(seat -> Integer.parseInt(seat.getSeatNumber().replaceAll("[A-Z]", ""))));
 
         // Find consecutive seats in each row
         List<List<SeatInfoDto>> validGroups = new ArrayList<>();
 
         for (List<SeatInfoDto> rowSeats : seatsByRow.values()) {
-            // Sort by seat letter
-            rowSeats.sort(Comparator.comparing(SeatInfoDto::getSeatNumber));
+            Map<Character, SeatInfoDto> seatsByLetter = rowSeats.stream()
+                    .collect(Collectors.toMap(
+                            seat -> seat.getSeatNumber().charAt(seat.getSeatNumber().length() - 1),
+                            seat -> seat,
+                            (s1, s2) -> s1));
 
-            // Check for consecutive seats
-            for (int i = 0; i <= rowSeats.size() - preferences.getNumberOfSeats(); i++) {
-                List<SeatInfoDto> group = rowSeats.subList(i, i + preferences.getNumberOfSeats());
-                validGroups.add(new ArrayList<>(group));
+            if (numberOfSeats <= 3) {
+                checkConsecutiveSeatsInSection(seatsByLetter, 'A', numberOfSeats, validGroups);
+                checkConsecutiveSeatsInSection(seatsByLetter, 'D', numberOfSeats, validGroups);
             }
         }
 
@@ -117,5 +138,17 @@ public class FlightService {
         return validGroups.stream()
                 .max(Comparator.comparing(group -> group.stream().mapToInt(SeatInfoDto::getRecommendationScore).sum()))
                 .orElse(new ArrayList<>());
+    }
+
+    private void checkConsecutiveSeatsInSection(Map<Character, SeatInfoDto> seatsByLetter, char start,
+            int groupSize, List<List<SeatInfoDto>> validGroups) {
+        List<SeatInfoDto> group = IntStream.range(0, groupSize)
+                .mapToObj(i -> (char) (start + i))
+                .map(seatsByLetter::get)
+                .takeWhile(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (group.size() == groupSize) {
+            validGroups.add(group);
+        }
     }
 }

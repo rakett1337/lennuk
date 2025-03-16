@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import dev.rakett.lennuk.dto.FlightDto;
+import dev.rakett.lennuk.dto.SeatInfoDto;
+import dev.rakett.lennuk.dto.SeatMapResponseDto;
 import dev.rakett.lennuk.exception.BadRequestException;
 import dev.rakett.lennuk.model.SeatPreference;
 import dev.rakett.lennuk.service.FlightService;
@@ -52,6 +54,7 @@ public class FlightController {
                 .build();
 
         // Get seat recommendations 
-        return ResponseEntity.ok(flightService.getSeatsWithRecommendations(id, preferences));
+        List<SeatInfoDto> seats = flightService.getSeatsWithRecommendations(id, preferences);
+        return ResponseEntity.ok(new SeatMapResponseDto(seats));
     }
 }
