@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import dev.rakett.lennuk.dto.FlightDto;
 import dev.rakett.lennuk.dto.SeatInfoDto;
+import dev.rakett.lennuk.exception.BadRequestException;
+import dev.rakett.lennuk.exception.ResourceNotFoundException;
 import dev.rakett.lennuk.model.SeatPreference;
 import dev.rakett.lennuk.util.FlightCreator;
 import dev.rakett.lennuk.util.SeatCreator;
@@ -45,7 +47,7 @@ public class FlightService {
         boolean flightExists = getFlights().stream()
                 .anyMatch(flight -> flight.getId().equals(flightId));
         if (!flightExists) {
-            return List.of();
+            throw new ResourceNotFoundException("Flight", "id", flightId);
         }
 
         List<SeatInfoDto> allSeats = seatCreator.createSeatsForFlight(flightId);
@@ -54,6 +56,11 @@ public class FlightService {
         List<SeatInfoDto> availableSeats = allSeats.stream()
                 .filter(seat -> !seat.isBooked())
                 .collect(Collectors.toList());
+
+        // Check if there are enough available seats
+        if (availableSeats.size() < preferences.getNumberOfSeats()) {
+            throw new BadRequestException("Not enough available seats on this flight");
+        }
 
         // Calculate scores
         availableSeats.forEach(seat -> seat.setRecommendationScore(preferences.calculateScore(
@@ -65,6 +72,9 @@ public class FlightService {
         List<SeatInfoDto> recommendedSeats;
         if (preferences.isSeatsTogetherRequired() && preferences.getNumberOfSeats() > 1) {
             recommendedSeats = findSeatsTogetherWithHighestScore(availableSeats, preferences);
+            if (recommendedSeats.isEmpty()) {
+                throw new BadRequestException("Could not find requested number of seats together");
+            }
         } else {
             recommendedSeats = availableSeats.stream()
                     .sorted(Comparator.comparing(SeatInfoDto::getRecommendationScore).reversed())
