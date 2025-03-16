@@ -102,14 +102,19 @@ public class SeatService {
         List<SeatInfo> seats = new ArrayList<>();
         int rows = flight.getRows() != null ? flight.getRows() : DEFAULT_ROWS;
         int seatsPerRow = flight.getSeatsPerRow() != null ? flight.getSeatsPerRow() : DEFAULT_SEATS_PER_ROW;
+
         for (int row = 1; row <= rows; row++) {
             for (int seatNum = 1; seatNum <= seatsPerRow; seatNum++) {
                 SeatInfo seatInfo = new SeatInfo();
                 seatInfo.setSeatNumber(String.valueOf(row) + (char) ('A' + seatNum - 1));
-                seatInfo.setWindow(seatNum == 1 || seatNum == seatsPerRow);
-                seatInfo.setAisle(seatNum == 2 || seatNum == seatsPerRow - 1);
+
+                seatInfo.setWindow(seatNum == 1 || seatNum == 6); // A and F
+                seatInfo.setAisle(seatNum == 3 || seatNum == 4); // C and D
+
                 seatInfo.setExitRow(row <= 2 || row >= rows - 1);
-                seatInfo.setExtraLegroom(row <= 1);
+
+                seatInfo.setExtraLegroom(row == 1);
+
                 seats.add(seatInfo);
             }
         }
