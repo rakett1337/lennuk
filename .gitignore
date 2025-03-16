@@ -1,0 +1,6 @@
+**/.vscode/
+**.env
+**.xml
+**.md
+!README.md
+*.config.json
