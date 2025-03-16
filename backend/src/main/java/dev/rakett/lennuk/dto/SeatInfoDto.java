@@ -14,5 +14,8 @@ public class SeatInfoDto {
     private boolean isWindow;
     private boolean isAisle;
     private boolean isExitRow;
+    private boolean isExtraLegroom;
     private boolean isBooked;
+    private boolean recommended;
+    private int recommendationScore;
 }
